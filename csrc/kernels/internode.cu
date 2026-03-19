@@ -646,21 +646,13 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
 
                 // Timeout check
                 if (clock64() - start_time >= NUM_TIMEOUT_CYCLES) {
-                    auto fresh_head = static_cast<int>(ld_volatile_global(rdma_channel_head.buffer(lane_id)));
-                    printf(
-                        "DeepEP dispatch RDMA sender timeout, channel: %d, RDMA: %d, nvl: %d, "
-                        "dst RDMA lane: %d, cached_head: %d, fresh_head: %d, tail: %d, "
-                        "buf_cap: %d, token_idx: %ld, sm_id: %d\n",
-                        channel_id,
-                        rdma_rank,
-                        nvl_rank,
-                        lane_id,
-                        cached_rdma_channel_head,
-                        fresh_head,
-                        rdma_tail_idx,
-                        num_max_rdma_chunked_recv_tokens,
-                        static_cast<long>(token_idx),
-                        sm_id);
+                    printf("DeepEP dispatch RDMA sender timeout, channel: %d, RDMA: %d, nvl: %d, dst RDMA lane: %d, head: %d, tail: %d\n",
+                           channel_id,
+                           rdma_rank,
+                           nvl_rank,
+                           lane_id,
+                           cached_rdma_channel_head,
+                           rdma_tail_idx);
                     trap();
                 }
             }
@@ -785,20 +777,13 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
         while (__any_sync(0xffffffff, num_tokens_to_send > 0)) {
             // Timeout check
             if (clock64() - start_time > NUM_TIMEOUT_CYCLES and lane_id < kNumRDMARanks) {
-                auto sender_progress = ld_acquire_cta(const_cast<const int*>(rdma_send_channel_tail + lane_id));
-                printf(
-                    "DeepEP RDMA sender coordinator timeout, channel: %d, IB: %d, nvl: %d, "
-                    "dst IB: %d, last_issued_tail: %d, remaining: %d, "
-                    "sender_smem_tail: %d, send_chunk: %d, sm_id: %d\n",
-                    channel_id,
-                    rdma_rank,
-                    nvl_rank,
-                    lane_id,
-                    last_issued_tail,
-                    num_tokens_to_send,
-                    sender_progress,
-                    num_max_rdma_chunked_send_tokens,
-                    sm_id);
+                printf("DeepEP RDMA sender coordinator timeout, channel: %d, IB: %d, nvl %d, dst IB: %d, tail: %d, remaining: %d\n",
+                       channel_id,
+                       rdma_rank,
+                       nvl_rank,
+                       lane_id,
+                       last_issued_tail,
+                       num_tokens_to_send);
                 trap();
             }
 
@@ -891,8 +876,8 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
                 // Timeout check
                 if (clock64() - start_time > NUM_TIMEOUT_CYCLES) {
                     printf(
-                        "DeepEP dispatch forwarder timeout (RDMA meta), channel: %d, RDMA: %d, nvl: %d, "
-                        "src RDMA lane: %d, dst NVL: %d, meta: %d, %d, %d, %d, sm_id: %d\n",
+                        "DeepEP dispatch forwarder timeout (RDMA meta), channel: %d, RDMA: %d, nvl: %d, src RDMA lane: %d, dst NVL: %d, "
+                        "meta: %d, %d, %d, %d\n",
                         channel_id,
                         rdma_rank,
                         nvl_rank,
@@ -901,8 +886,7 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
                         meta_0,
                         meta_1,
                         meta_2,
-                        meta_3,
-                        sm_id);
+                        meta_3);
                     trap();
                 }
             }
@@ -932,16 +916,13 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
                 // Timeout check
                 if (elect_one_sync() and clock64() - start_time > NUM_TIMEOUT_CYCLES) {
                     printf(
-                        "DeepEP dispatch forwarder timeout (NVL check), channel: %d, RDMA: %d, nvl: %d, "
-                        "dst NVL: %d, head: %d, tail: %d, nvl_buf_cap: %d, sm_id: %d\n",
+                        "DeepEP dispatch forwarder timeout (NVL check), channel: %d, RDMA: %d, nvl: %d, dst NVL: %d, head: %d, tail: %d\n",
                         channel_id,
                         rdma_rank,
                         nvl_rank,
                         dst_nvl_rank,
                         ld_volatile_global(nvl_channel_head.buffer()),
-                        cached_nvl_channel_tail,
-                        num_max_nvl_chunked_recv_tokens,
-                        sm_id);
+                        cached_nvl_channel_tail);
                     trap();
                 }
             }
@@ -959,11 +940,9 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
 
                 // Timeout check
                 if (clock64() - start_time > NUM_TIMEOUT_CYCLES and lane_id < kNumRDMARanks) {
-                    auto fresh_tail = static_cast<int>(ld_volatile_global(rdma_channel_tail.buffer(lane_id)));
                     printf(
-                        "DeepEP dispatch forwarder timeout (RDMA check), channel: %d, RDMA: %d, nvl: %d, dst NVL: %d, "
-                        "src RDMA lane: %d, head: %d, cached_tail: %d, fresh_tail: %d, remaining: %d, "
-                        "sm_id: %d, num_sms: %d\n",
+                        "DeepEP dispatch forwarder timeout (RDMA check), channel: %d, RDMA: %d, nvl: %d, dst NVL: %d, src RDMA lane: %d, "
+                        "head: %d, tail: %d, expected: %d\n",
                         channel_id,
                         rdma_rank,
                         nvl_rank,
@@ -971,10 +950,7 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
                         lane_id,
                         cached_rdma_channel_head,
                         cached_rdma_channel_tail,
-                        fresh_tail,
-                        num_tokens_to_recv_from_rdma,
-                        sm_id,
-                        num_sms);
+                        num_tokens_to_recv_from_rdma);
                     trap();
                 }
             }
@@ -1103,16 +1079,14 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
             // Timeout check
             if (clock64() - start_time > NUM_TIMEOUT_CYCLES) {
                 printf(
-                    "DeepEP dispatch NVL receiver timeout (prefix), channel: %d, RDMA: %d, nvl: %d, "
-                    "src RDMA lane: %d, src nvl: %d, start: %d, end: %d, sm_id: %d\n",
+                    "DeepEP dispatch NVL receiver timeout, channel: %d, RDMA: %d, nvl: %d, src RDMA: %d, src nvl: %d, start: %d, end: %d\n",
                     channel_id,
                     rdma_rank,
                     nvl_rank,
                     lane_id,
                     src_nvl_rank,
                     start_offset,
-                    end_offset,
-                    sm_id);
+                    end_offset);
                 trap();
             }
         }
@@ -1135,20 +1109,13 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
 
                 // Timeout check
                 if (elect_one_sync() and clock64() - start_time > NUM_TIMEOUT_CYCLES) {
-                    auto fresh_tail = ld_volatile_global(nvl_channel_tail.buffer());
-                    printf(
-                        "DeepEP dispatch NVL receiver timeout (data), channel: %d, RDMA: %d, nvl: %d, "
-                        "src NVL: %d, head: %d, cached_tail: %d, fresh_tail: %d, "
-                        "remaining: %d, sm_id: %d\n",
-                        channel_id,
-                        rdma_rank,
-                        nvl_rank,
-                        src_nvl_rank,
-                        cached_channel_head_idx,
-                        cached_channel_tail_idx,
-                        fresh_tail,
-                        num_tokens_to_recv,
-                        sm_id);
+                    printf("DeepEP dispatch NVL receiver timeout, channel: %d, RDMA: %d, nvl: %d, src NVL: %d, head: %d, tail: %d\n",
+                           channel_id,
+                           rdma_rank,
+                           nvl_rank,
+                           src_nvl_rank,
+                           cached_channel_head_idx,
+                           cached_channel_tail_idx);
                     trap();
                 }
             }

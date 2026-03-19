@@ -62,9 +62,6 @@ struct PatternVisitor {
 };
 
 __device__ __forceinline__ void trap() {
-    __threadfence_system();
-    for (int _i = 0; _i < 3000; ++_i)
-        __nanosleep(1000000u);
     asm("trap;");
 }
 
