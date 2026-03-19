@@ -71,13 +71,16 @@ if __name__ == '__main__':
         # CUDA 12 flags
         nvcc_flags.extend(['-rdc=true', '--ptxas-options=--register-usage-level=10'])
 
-    # Disable LD/ST tricks, as some CUDA version does not support `.L1::no_allocate`
-    if os.environ['TORCH_CUDA_ARCH_LIST'].strip() != '9.0':
+    # Disable LD/ST tricks for architectures where `.L1::no_allocate` is not supported.
+    # SM90 (Hopper) and SM100 (Blackwell) both support `.L1::no_allocate`.
+    # Disabling it on SM100 causes NIC DMA to read stale L1-cached data,
+    # leading to SourceMeta corruption and internode dispatch deadlocks.
+    if os.environ['TORCH_CUDA_ARCH_LIST'].strip() not in ('9.0', '9.0a', '10.0', '10.0a'):
         assert int(os.getenv('DISABLE_AGGRESSIVE_PTX_INSTRS', 1)) == 1
         os.environ['DISABLE_AGGRESSIVE_PTX_INSTRS'] = '1'
 
     # Disable aggressive PTX instructions
-    if int(os.getenv('DISABLE_AGGRESSIVE_PTX_INSTRS', '1')):
+    if int(os.getenv('DISABLE_AGGRESSIVE_PTX_INSTRS', '0')):
         cxx_flags.append('-DDISABLE_AGGRESSIVE_PTX_INSTRS')
         nvcc_flags.append('-DDISABLE_AGGRESSIVE_PTX_INSTRS')
 
