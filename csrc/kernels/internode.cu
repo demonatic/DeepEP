@@ -646,13 +646,21 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
 
                 // Timeout check
                 if (clock64() - start_time >= NUM_TIMEOUT_CYCLES) {
-                    printf("DeepEP dispatch RDMA sender timeout, channel: %d, RDMA: %d, nvl: %d, dst RDMA lane: %d, head: %d, tail: %d\n",
-                           channel_id,
-                           rdma_rank,
-                           nvl_rank,
-                           lane_id,
-                           cached_rdma_channel_head,
-                           rdma_tail_idx);
+                    auto fresh_head = static_cast<int>(ld_volatile_global(rdma_channel_head.buffer(lane_id)));
+                    printf(
+                        "DeepEP dispatch RDMA sender timeout, channel: %d, RDMA: %d, nvl: %d, "
+                        "dst RDMA lane: %d, cached_head: %d, fresh_head: %d, tail: %d, "
+                        "buf_cap: %d, token_idx: %ld, sm_id: %d\n",
+                        channel_id,
+                        rdma_rank,
+                        nvl_rank,
+                        lane_id,
+                        cached_rdma_channel_head,
+                        fresh_head,
+                        rdma_tail_idx,
+                        num_max_rdma_chunked_recv_tokens,
+                        static_cast<long>(token_idx),
+                        sm_id);
                     trap();
                 }
             }
@@ -777,13 +785,20 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
         while (__any_sync(0xffffffff, num_tokens_to_send > 0)) {
             // Timeout check
             if (clock64() - start_time > NUM_TIMEOUT_CYCLES and lane_id < kNumRDMARanks) {
-                printf("DeepEP RDMA sender coordinator timeout, channel: %d, IB: %d, nvl %d, dst IB: %d, tail: %d, remaining: %d\n",
-                       channel_id,
-                       rdma_rank,
-                       nvl_rank,
-                       lane_id,
-                       last_issued_tail,
-                       num_tokens_to_send);
+                auto sender_progress = ld_acquire_cta(const_cast<const int*>(rdma_send_channel_tail + lane_id));
+                printf(
+                    "DeepEP RDMA sender coordinator timeout, channel: %d, IB: %d, nvl: %d, "
+                    "dst IB: %d, last_issued_tail: %d, remaining: %d, "
+                    "sender_smem_tail: %d, send_chunk: %d, sm_id: %d\n",
+                    channel_id,
+                    rdma_rank,
+                    nvl_rank,
+                    lane_id,
+                    last_issued_tail,
+                    num_tokens_to_send,
+                    sender_progress,
+                    num_max_rdma_chunked_send_tokens,
+                    sm_id);
                 trap();
             }
 
