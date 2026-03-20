@@ -729,6 +729,10 @@ __global__ void __launch_bounds__(((kNumDispatchRDMASenderWarps + 1 + NUM_MAX_NV
                 auto latest_tail = rdma_send_channel_tail[lane_id];
                 auto offset = rdma_tail_idx - latest_tail;
                 while (offset >= 32) {
+                    if (clock64() - start_time >= NUM_TIMEOUT_CYCLES) {
+                        printf("DeepEP dispatch sender window timeout, channel: %d\n", channel_id);
+                        trap();
+                    }
                     release_lock(rdma_send_channel_lock + lane_id);
                     acquire_lock(rdma_send_channel_lock + lane_id);
                     latest_tail = rdma_send_channel_tail[lane_id];
